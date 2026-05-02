@@ -108,19 +108,25 @@ export async function summarizeWorkspaceFiles(dataDir: string): Promise<string> 
   ]);
 
   return [
+    "IMPORTANT: This is private local assistant memory. Use it to answer the user's personal/project/task questions. Do not claim you lack access when the answer is here.",
     "## profile.md",
-    profile,
+    compactText(profile, 3500),
     "## projects.md",
-    projects,
+    compactText(projects, 1800),
     "## daily.md",
-    daily,
+    compactText(daily, 1000),
     "## memory.md",
-    memory,
+    compactText(memory, 3500),
     "## inbox.md",
-    inbox,
+    compactText(inbox, 1000),
     "## tasks.json",
-    tasks
+    compactText(tasks, 3500)
   ].join("\n\n");
+}
+
+function compactText(value: string, maxChars: number): string {
+  if (value.length <= maxChars) return value;
+  return `${value.slice(0, maxChars)}\n\n[Truncated for context. Use tools to read the full file if needed.]`;
 }
 
 export async function appendMemorySummary(dataDir: string, userInput: string, assistantOutput: string): Promise<void> {

@@ -1,46 +1,82 @@
 import { OllamaClient, type ChatMessage } from "../ollamaClient.js";
 import { appendMemorySummary, summarizeWorkspaceFiles } from "../memory/workspace.js";
 import { executeTool, parseToolCalls } from "./tools.js";
-import { systemPrompt, workspacePrompt } from "./prompts.js";
+import { systemPrompt, userPrompt, workspacePrompt } from "./prompts.js";
+import { guardAssistantPersona } from "./responseGuard.js";
 
 export type AgentResult = {
   answer: string;
   toolResults: Array<{ tool: string; result: unknown }>;
 };
 
-export async function runAgentTurn(input: string, dataDir: string, ollama: OllamaClient): Promise<AgentResult> {
-  const workspaceSummary = await summarizeWorkspaceFiles(dataDir);
-  const messages: ChatMessage[] = [
-    { role: "system", content: systemPrompt() },
-    { role: "system", content: workspacePrompt(workspaceSummary) },
-    { role: "user", content: input }
-  ];
+export class AgentSession {
+  private workspaceSummary = "";
 
-  const firstResponse = await ollama.chat(messages);
-  const toolCalls = parseToolCalls(firstResponse);
-  const toolResults: Array<{ tool: string; result: unknown }> = [];
+  constructor(
+    private readonly dataDir: string,
+    private readonly ollama: OllamaClient
+  ) {}
 
-  if (toolCalls.length > 0) {
-    for (const call of toolCalls) {
-      const result = await executeTool(dataDir, call);
-      toolResults.push({ tool: call.tool, result });
-    }
-
-    messages.push({ role: "assistant", content: firstResponse });
-    messages.push({
-      role: "tool",
-      content: JSON.stringify({ toolResults }, null, 2)
-    });
-    messages.push({
-      role: "user",
-      content: "Use those tool results to provide the final answer in the requested structure."
-    });
-
-    const answer = await ollama.chat(messages);
-    await appendMemorySummary(dataDir, input, answer);
-    return { answer, toolResults };
+  async preloadWorkspace(): Promise<void> {
+    this.workspaceSummary = await summarizeWorkspaceFiles(this.dataDir);
   }
 
-  await appendMemorySummary(dataDir, input, firstResponse);
-  return { answer: firstResponse, toolResults };
+  async warmup(): Promise<void> {
+    if (!this.workspaceSummary) await this.preloadWorkspace();
+    await this.ollama.chat([
+      { role: "system", content: systemPrompt() },
+      { role: "system", content: workspacePrompt(this.workspaceSummary) },
+      {
+        role: "user",
+        content:
+          "Preload this workspace context for the local assistant session. Reply with only: Ready."
+      }
+    ]);
+  }
+
+  async runTurn(input: string): Promise<AgentResult> {
+    if (!this.workspaceSummary) await this.preloadWorkspace();
+
+    const messages: ChatMessage[] = [
+      { role: "system", content: systemPrompt() },
+      { role: "user", content: userPrompt(input, this.workspaceSummary) }
+    ];
+
+    const firstResponse = await this.ollama.chat(messages);
+    const toolCalls = parseToolCalls(firstResponse);
+    const toolResults: Array<{ tool: string; result: unknown }> = [];
+
+    if (toolCalls.length > 0) {
+      for (const call of toolCalls) {
+        const result = await executeTool(this.dataDir, call);
+        toolResults.push({ tool: call.tool, result });
+      }
+
+      await this.preloadWorkspace();
+
+      messages.push({ role: "assistant", content: firstResponse });
+      messages.push({
+        role: "tool",
+        content: JSON.stringify({ toolResults }, null, 2)
+      });
+      messages.push({
+        role: "system",
+        content: workspacePrompt(this.workspaceSummary)
+      });
+      messages.push({
+        role: "user",
+        content: "Use those tool results to provide the final answer in the requested structure."
+      });
+
+      const answer = guardAssistantPersona(await this.ollama.chat(messages));
+      await appendMemorySummary(this.dataDir, input, answer);
+      await this.preloadWorkspace();
+      return { answer, toolResults };
+    }
+
+    const answer = guardAssistantPersona(firstResponse);
+    await appendMemorySummary(this.dataDir, input, answer);
+    await this.preloadWorkspace();
+    return { answer, toolResults };
+  }
 }
