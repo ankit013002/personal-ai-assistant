@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Runtime assistant artifacts
+assistant_data/audio/
+*.wav
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
