@@ -16,6 +16,10 @@ yarn-error.log*
 pnpm-debug.log*
 
 # Runtime assistant artifacts
+assistant_data/*
+!assistant_data/.gitkeep
+!assistant_data/*.example.md
+!assistant_data/tasks.example.json
 assistant_data/audio/
 *.wav
 

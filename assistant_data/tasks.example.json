@@ -1,0 +1,11 @@
+[
+  {
+    "id": "example-task",
+    "title": "Example task",
+    "status": "todo",
+    "project": "Example project",
+    "notes": "Replace this with your own local tasks.",
+    "createdAt": "2026-05-02T00:00:00.000Z",
+    "updatedAt": "2026-05-02T00:00:00.000Z"
+  }
+]
