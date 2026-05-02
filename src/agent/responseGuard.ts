@@ -1,7 +1,6 @@
 export function guardAssistantPersona(answer: string): string {
   const userRoleplayPatterns = [
-    /\bI(?:'m| am) Ankit Patel\b/i,
-    /\bI(?:'m| am) Ankit\b/i,
+    /\bI(?:'m| am) the user\b/i,
     /\bmy condo in Fairborn\b/i,
     /\bmy projects\b/i
   ];
@@ -15,8 +14,7 @@ export function guardAssistantPersona(answer: string): string {
     "",
     answer
       .replace(/\bHello!\s*/i, "")
-      .replace(/\bI(?:'m| am) Ankit Patel\b/gi, "You are Ankit Patel")
-      .replace(/\bI(?:'m| am) Ankit\b/gi, "You are Ankit")
+      .replace(/\bI(?:'m| am) the user\b/gi, "You are the user")
       .replace(/\bMy primary focus is\b/gi, "Your primary focus is")
       .replace(/\bmy condo in Fairborn\b/gi, "your condo in Fairborn")
       .replace(/\bmy condo\b/gi, "your condo")

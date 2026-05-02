@@ -10,15 +10,31 @@ export type TtsConfig = {
   python: string;
   script: string;
   outputDir: string;
+  voice: string;
+  speed: number;
 };
 
 export async function speakText(text: string, config: TtsConfig): Promise<string | undefined> {
   if (!config.enabled) return undefined;
 
   await fs.mkdir(config.outputDir, { recursive: true });
-  const { stdout } = await execFileAsync(config.python, [config.script, "--text", text, "--output-dir", config.outputDir], {
-    maxBuffer: 1024 * 1024
-  });
+  const { stdout } = await execFileAsync(
+    config.python,
+    [
+      config.script,
+      "--text",
+      text,
+      "--output-dir",
+      config.outputDir,
+      "--voice",
+      config.voice,
+      "--speed",
+      String(config.speed)
+    ],
+    {
+      maxBuffer: 1024 * 1024
+    }
+  );
   const audioPath = stdout.trim().split(/\r?\n/).at(-1);
   if (!audioPath) throw new Error("TTS script did not return an audio path.");
 

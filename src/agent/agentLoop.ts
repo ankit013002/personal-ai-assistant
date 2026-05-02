@@ -1,5 +1,5 @@
 import { OllamaClient, type ChatMessage } from "../ollamaClient.js";
-import { appendMemorySummary, summarizeWorkspaceFiles } from "../memory/workspace.js";
+import { appendMemorySummary, summarizeWorkspaceFiles, summarizeWorkspaceForInput } from "../memory/workspace.js";
 import { executeTool, parseToolCalls } from "./tools.js";
 import { systemPrompt, userPrompt, workspacePrompt } from "./prompts.js";
 import { guardAssistantPersona } from "./responseGuard.js";
@@ -36,10 +36,11 @@ export class AgentSession {
 
   async runTurn(input: string): Promise<AgentResult> {
     if (!this.workspaceSummary) await this.preloadWorkspace();
+    const focusedWorkspaceSummary = await summarizeWorkspaceForInput(this.dataDir, input);
 
     const messages: ChatMessage[] = [
       { role: "system", content: systemPrompt() },
-      { role: "user", content: userPrompt(input, this.workspaceSummary) }
+      { role: "user", content: userPrompt(input, focusedWorkspaceSummary) }
     ];
 
     const firstResponse = await this.ollama.chat(messages);
@@ -61,7 +62,7 @@ export class AgentSession {
       });
       messages.push({
         role: "system",
-        content: workspacePrompt(this.workspaceSummary)
+        content: workspacePrompt(await summarizeWorkspaceForInput(this.dataDir, input))
       });
       messages.push({
         role: "user",

@@ -124,9 +124,74 @@ export async function summarizeWorkspaceFiles(dataDir: string): Promise<string> 
   ].join("\n\n");
 }
 
+export async function summarizeWorkspaceForInput(dataDir: string, input: string): Promise<string> {
+  const [profile, projects, daily, memory, inbox, tasksText] = await Promise.all([
+    readWorkspaceText(dataDir, "profile.md"),
+    readWorkspaceText(dataDir, "projects.md"),
+    readWorkspaceText(dataDir, "daily.md"),
+    readWorkspaceText(dataDir, "memory.md"),
+    readWorkspaceText(dataDir, "inbox.md"),
+    readWorkspaceText(dataDir, "tasks.json")
+  ]);
+
+  const focus = detectFocus(input);
+  const filteredTasks = filterTasksForFocus(tasksText, focus);
+
+  return [
+    `REQUEST FOCUS: ${focus}. Use only memory relevant to this focus unless the user asks for all priorities.`,
+    "IMPORTANT: This is private local assistant memory. Use it to answer the user's personal/project/task questions. Do not claim you lack access when the answer is here.",
+    "## profile.md",
+    compactText(profile, 2500),
+    "## projects.md",
+    compactText(projects, focus === "condo/property rental" ? 1200 : 1800),
+    "## daily.md",
+    compactText(daily, 1000),
+    "## memory.md",
+    compactText(memory, focus === "condo/property rental" ? 3000 : 3500),
+    "## inbox.md",
+    compactText(inbox, 1000),
+    "## relevant tasks.json entries",
+    filteredTasks
+  ].join("\n\n");
+}
+
 function compactText(value: string, maxChars: number): string {
   if (value.length <= maxChars) return value;
   return `${value.slice(0, maxChars)}\n\n[Truncated for context. Use tools to read the full file if needed.]`;
+}
+
+function detectFocus(input: string): string {
+  const lower = input.toLowerCase();
+  if (/\b(condo|rental|rent out|tenant|landlord|lease|property|fairborn|fieldstone)\b/.test(lower)) {
+    return "condo/property rental";
+  }
+  if (/\b(benzene|nebula|vault|storage|s3|compression)\b/.test(lower)) return "Benzene / Nebula Vault";
+  if (/\b(portfolio|resume|career|case stud)/.test(lower)) return "portfolio/career";
+  if (/\b(node|npm|typescript|tooling|esm|cjs)\b/.test(lower)) return "Node/npm learning";
+  if (/\b(today|daily|all priorities|everything|tasks|plan my day)\b/.test(lower)) return "daily planning";
+  return "general";
+}
+
+function filterTasksForFocus(tasksText: string, focus: string): string {
+  try {
+    const tasks = JSON.parse(tasksText) as Array<Record<string, unknown>>;
+    if (focus === "daily planning" || focus === "general") return JSON.stringify(tasks, null, 2);
+
+    const keywordsByFocus: Record<string, string[]> = {
+      "condo/property rental": ["condo", "rental", "rent", "property", "fairborn", "lease", "tenant", "insurance"],
+      "Benzene / Nebula Vault": ["benzene", "nebula", "vault", "storage", "compression"],
+      "portfolio/career": ["portfolio", "career", "case stud"],
+      "Node/npm learning": ["node", "npm", "typescript", "tooling", "esm", "cjs"]
+    };
+    const keywords = keywordsByFocus[focus] ?? [];
+    const relevant = tasks.filter((task) => {
+      const searchable = JSON.stringify(task).toLowerCase();
+      return keywords.some((keyword) => searchable.includes(keyword));
+    });
+    return JSON.stringify(relevant, null, 2);
+  } catch {
+    return compactText(tasksText, 2500);
+  }
 }
 
 export async function appendMemorySummary(dataDir: string, userInput: string, assistantOutput: string): Promise<void> {

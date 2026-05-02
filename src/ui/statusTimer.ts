@@ -4,10 +4,17 @@ export type StatusTimer = {
 
 export function startStatusTimer(label: string): StatusTimer {
   const startedAt = Date.now();
+  let lastLength = 0;
+
+  const writeLine = (message: string): void => {
+    const padding = " ".repeat(Math.max(0, lastLength - message.length));
+    process.stdout.write(`\r${message}${padding}`);
+    lastLength = message.length;
+  };
 
   const render = (): void => {
     const elapsedSeconds = Math.floor((Date.now() - startedAt) / 1000);
-    process.stdout.write(`\r${label} ${elapsedSeconds}s`);
+    writeLine(`${label} ${elapsedSeconds}s`);
   };
 
   render();
@@ -18,7 +25,8 @@ export function startStatusTimer(label: string): StatusTimer {
       clearInterval(interval);
       const elapsedSeconds = (Date.now() - startedAt) / 1000;
       const message = finalMessage ?? `${label} done in ${elapsedSeconds.toFixed(1)}s`;
-      process.stdout.write(`\r${message}${" ".repeat(20)}\n`);
+      writeLine(message);
+      process.stdout.write("\n");
       return elapsedSeconds;
     }
   };

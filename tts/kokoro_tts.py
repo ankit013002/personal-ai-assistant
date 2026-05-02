@@ -23,6 +23,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Generate Kokoro TTS audio for assistant text.")
     parser.add_argument("--text", required=True)
     parser.add_argument("--output-dir", default="assistant_data/audio")
+    parser.add_argument("--voice", default="af_heart")
+    parser.add_argument("--speed", type=float, default=1.0)
     args = parser.parse_args()
 
     os.makedirs(args.output_dir, exist_ok=True)
@@ -33,7 +35,7 @@ def main() -> None:
         import soundfile as sf  # type: ignore
 
         pipeline = KPipeline(lang_code="a")
-        generator = pipeline(args.text, voice="af_heart", speed=1.0)
+        generator = pipeline(args.text, voice=args.voice, speed=args.speed)
         for _, _, audio in generator:
             sf.write(output_path, audio, 24000)
             break
